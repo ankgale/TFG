@@ -1,0 +1,23 @@
+# Django Core
+Django>=5.0,<6.0
+djangorestframework>=3.14,<4.0
+django-cors-headers>=4.3,<5.0
+
+# Django Channels (WebSocket support)
+channels>=4.0,<5.0
+channels-redis>=4.1,<5.0
+daphne>=4.0,<5.0
+
+# Database
+psycopg2-binary>=2.9,<3.0  # PostgreSQL (for production)
+
+# Stock Data
+yfinance>=0.2.36,<1.0
+
+# Utilities
+python-dotenv>=1.0,<2.0
+python-dateutil>=2.8,<3.0
+
+# Development
+black>=24.0,<25.0
+flake8>=7.0,<8.0

@@ -1,0 +1,12 @@
+20.01.2026
+
+- Hacer el primer módulo como lo quieras (que no todas sean la b, revisar a contenidos más simples)
+- Intentar que al acabar un modulo se ganen XP y Dinero
+- Refinar el diseño (colores y tipografía)
+- Usuarios
+
+Recomendable:
+- Que sea todo acciones y la parte de grafica se abra al pulsar una
+- Si consigues reducir la latencia o que haya algo por defecto
+- Que si compras algo baje el dinero de la cartera
+- Vidas

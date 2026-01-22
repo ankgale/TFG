@@ -1,0 +1,10 @@
+"""
+WebSocket URL routing for Stocks app.
+"""
+
+from django.urls import re_path
+from . import consumers
+
+websocket_urlpatterns = [
+    re_path(r'ws/stocks/$', consumers.StockPriceConsumer.as_asgi()),
+]
