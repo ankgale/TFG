@@ -72,10 +72,13 @@ class LessonViewSet(viewsets.ModelViewSet):
     def start(self, request, pk=None):
         """Mark a lesson as started."""
         lesson = self.get_object()
-        user_id = request.data.get('user_id')  # Temporary until auth
+        user = request.user
+        
+        if not user.is_authenticated:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
         
         progress, created = UserLessonProgress.objects.get_or_create(
-            user_id=user_id,
+            user=user,
             lesson=lesson,
             defaults={
                 'status': 'in_progress',
@@ -95,11 +98,14 @@ class LessonViewSet(viewsets.ModelViewSet):
     def complete(self, request, pk=None):
         """Mark a lesson as completed."""
         lesson = self.get_object()
-        user_id = request.data.get('user_id')  # Temporary until auth
+        user = request.user
         score = request.data.get('score', 100)
         
+        if not user.is_authenticated:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        
         progress, created = UserLessonProgress.objects.get_or_create(
-            user_id=user_id,
+            user=user,
             lesson=lesson,
             defaults={
                 'status': 'completed',
@@ -117,22 +123,30 @@ class LessonViewSet(viewsets.ModelViewSet):
             progress.completed_at = timezone.now()
             progress.save()
         
+        # Award XP only on first completion
+        xp_earned = 0
+        if created:
+            xp_earned = lesson.xp_reward
+            user.add_xp(xp_earned)
+        
         # Update module progress
-        self._update_module_progress(user_id, lesson.module)
+        self._update_module_progress(user, lesson.module)
         
         serializer = UserLessonProgressSerializer(progress)
         return Response({
             'progress': serializer.data,
-            'xp_earned': lesson.xp_reward if created else 0
+            'xp_earned': xp_earned,
+            'new_xp_total': user.xp_points,
+            'new_level': user.level,
         })
     
-    def _update_module_progress(self, user_id, module):
+    def _update_module_progress(self, user, module):
         """Update module progress when a lesson is completed."""
-        if not user_id:
+        if not user:
             return
         
         completed_lessons = UserLessonProgress.objects.filter(
-            user_id=user_id,
+            user=user,
             lesson__module=module,
             status='completed'
         ).count()
@@ -140,7 +154,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         total_lessons = module.lessons_count
         
         module_progress, _ = UserModuleProgress.objects.get_or_create(
-            user_id=user_id,
+            user=user,
             module=module,
             defaults={'started_at': timezone.now()}
         )
@@ -205,9 +219,9 @@ class UserProgressViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get overall progress summary."""
-        user_id = request.query_params.get('user_id')
+        user = request.user
         
-        if not user_id:
+        if not user.is_authenticated:
             return Response({
                 'total_modules': Module.objects.filter(is_published=True).count(),
                 'total_lessons': Lesson.objects.filter(is_published=True).count(),
@@ -217,12 +231,12 @@ class UserProgressViewSet(viewsets.ReadOnlyModelViewSet):
             })
         
         completed_lessons = UserLessonProgress.objects.filter(
-            user_id=user_id,
+            user=user,
             status='completed'
         ).count()
         
         completed_modules = UserModuleProgress.objects.filter(
-            user_id=user_id,
+            user=user,
             is_completed=True
         ).count()
         

@@ -83,25 +83,23 @@ export const lessonsApi = {
   /**
    * Start a lesson.
    */
-  startLesson: (lessonId, userId = null) => fetchApi(`/lessons/lessons/${lessonId}/start/`, {
+  startLesson: (lessonId) => fetchApi(`/lessons/lessons/${lessonId}/start/`, {
     method: 'POST',
-    body: JSON.stringify({ user_id: userId }),
   }),
   
   /**
    * Complete a lesson.
    */
-  completeLesson: (lessonId, userId = null, score = 100) => fetchApi(`/lessons/lessons/${lessonId}/complete/`, {
+  completeLesson: (lessonId, score = 100) => fetchApi(`/lessons/lessons/${lessonId}/complete/`, {
     method: 'POST',
-    body: JSON.stringify({ user_id: userId, score }),
+    body: JSON.stringify({ score }),
   }),
   
   /**
    * Get progress summary.
    */
-  getProgressSummary: (userId = null) => {
-    const params = userId ? `?user_id=${userId}` : '';
-    return fetchApi(`/lessons/progress/summary/${params}`);
+  getProgressSummary: () => {
+    return fetchApi(`/lessons/progress/summary/`);
   },
 };
 
@@ -141,54 +139,49 @@ export const stocksApi = {
   /**
    * Get user's portfolio.
    */
-  getPortfolio: (userId = null) => {
-    const params = userId ? `?user_id=${userId}` : '';
-    return fetchApi(`/stocks/portfolio/${params}`);
+  getPortfolio: () => {
+    return fetchApi(`/stocks/portfolio/`);
   },
   
   /**
    * Get portfolio summary.
    */
-  getPortfolioSummary: (userId = null) => {
-    const params = userId ? `?user_id=${userId}` : '';
-    return fetchApi(`/stocks/portfolio/summary/${params}`);
+  getPortfolioSummary: () => {
+    return fetchApi(`/stocks/portfolio/summary/`);
   },
   
   /**
    * Execute a trade.
    */
-  executeTrade: (stockId, shares, transactionType, userId = null) => fetchApi('/stocks/trade/', {
+  executeTrade: (stockId, shares, transactionType) => fetchApi('/stocks/trade/', {
     method: 'POST',
     body: JSON.stringify({
       stock_id: stockId,
       shares,
       transaction_type: transactionType,
-      user_id: userId,
     }),
   }),
   
   /**
    * Get transaction history.
    */
-  getTransactions: (userId = null) => {
-    const params = userId ? `?user_id=${userId}` : '';
-    return fetchApi(`/stocks/transactions/${params}`);
+    getTransactions: () => {
+    return fetchApi(`/stocks/transactions/`);
   },
   
   /**
    * Get user's watchlist.
    */
-  getWatchlist: (userId = null) => {
-    const params = userId ? `?user_id=${userId}` : '';
-    return fetchApi(`/stocks/watchlist/${params}`);
+  getWatchlist: () => {
+    return fetchApi(`/stocks/watchlist/`);
   },
   
   /**
    * Add stock to watchlist.
    */
-  addToWatchlist: (stockId, userId = null) => fetchApi('/stocks/watchlist/', {
+  addToWatchlist: (stockId) => fetchApi('/stocks/watchlist/', {
     method: 'POST',
-    body: JSON.stringify({ stock_id: stockId, user_id: userId }),
+    body: JSON.stringify({ stock_id: stockId }),
   }),
   
   /**
@@ -205,22 +198,22 @@ export const usersApi = {
   /**
    * Get all users.
    */
-  getUsers: () => fetchApi('/users/'),
+  getUsers: () => fetchApi('/users/profiles/'),
   
   /**
    * Get a single user by ID.
    */
-  getUser: (id) => fetchApi(`/users/${id}/`),
+  getUser: (id) => fetchApi(`/users/profiles/${id}/`),
   
   /**
    * Get user progress.
    */
-  getUserProgress: (id) => fetchApi(`/users/${id}/progress/`),
+  getUserProgress: (id) => fetchApi(`/users/profiles/${id}/progress/`),
   
   /**
    * Add XP to user.
    */
-  addXp: (userId, amount) => fetchApi(`/users/${userId}/add_xp/`, {
+  addXp: (userId, amount) => fetchApi(`/users/profiles/${userId}/add_xp/`, {
     method: 'POST',
     body: JSON.stringify({ amount }),
   }),
@@ -246,9 +239,9 @@ export const usersApi = {
   /**
    * Register user.
    */
-  register: (username, email, password, password_confirm) => fetchApi('/users/register/', {
+  register: (username, password, password_confirm) => fetchApi('/users/register/', {
     method: 'POST',
-    body: JSON.stringify({ username, email, password, password_confirm }),
+    body: JSON.stringify({ username, password, password_confirm }),
   }),
 };
 

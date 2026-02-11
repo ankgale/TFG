@@ -10,12 +10,14 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { lessonsApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import translations from '../i18n/translations';
 
 function LessonDetail() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const { lesson: lessonText, sampleLesson } = translations;
+  const { isAuthenticated, refreshUser } = useAuth();
   
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,14 +70,33 @@ function LessonDetail() {
     setShowResult(true);
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentQuizIndex < lesson.quizzes.length - 1) {
       setCurrentQuizIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setShowResult(false);
     } else {
-      // Quiz complete
-      setEarnedXp(prev => prev + lesson.xp_reward);
+      // Quiz complete — calculate score and tell the backend
+      const totalQuizzes = lesson.quizzes.length;
+      const score = Math.round((correctAnswers / totalQuizzes) * 100);
+      
+      if (isAuthenticated) {
+        try {
+          const result = await lessonsApi.completeLesson(lessonId, score);
+          // Use the real XP earned from the server (0 if already completed before)
+          setEarnedXp(prev => prev + (result.xp_earned || 0));
+          // Refresh user data so the sidebar XP/level updates immediately
+          refreshUser();
+        } catch (error) {
+          console.error('Failed to record lesson completion:', error);
+          // Still show the completion screen even if the API call fails
+          setEarnedXp(prev => prev + lesson.xp_reward);
+        }
+      } else {
+        // Not logged in — just show local XP (not persisted)
+        setEarnedXp(prev => prev + lesson.xp_reward);
+      }
+      
       setCurrentStep('complete');
     }
   };

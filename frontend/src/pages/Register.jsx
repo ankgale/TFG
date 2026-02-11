@@ -11,7 +11,6 @@ function Register() {
   
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     password: '',
     password_confirm: '',
   });
@@ -48,7 +47,6 @@ function Register() {
     try {
       await register(
         formData.username,
-        formData.email,
         formData.password,
         formData.password_confirm
       );
@@ -111,22 +109,6 @@ function Register() {
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                   placeholder={auth.username}
-                />
-              </div>
-
-              {/* Email Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {auth.email}
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  placeholder="correo@ejemplo.com"
                 />
               </div>
 

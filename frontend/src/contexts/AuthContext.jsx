@@ -58,8 +58,8 @@ export function AuthProvider({ children }) {
     return response;
   };
 
-  const register = async (username, email, password, passwordConfirm) => {
-    const response = await usersApi.register(username, email, password, passwordConfirm);
+  const register = async (username, password, passwordConfirm) => {
+    const response = await usersApi.register(username, password, passwordConfirm);
     return response;
   };
 
