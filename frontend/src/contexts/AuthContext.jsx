@@ -69,6 +69,14 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  /**
+   * Update user in state with partial data (e.g. after earning XP).
+   * Merges into existing user so the sidebar updates immediately.
+   */
+  const updateUserXp = (partial) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
+  };
+
   const value = {
     user,
     isAuthenticated: !!user,
@@ -78,8 +86,9 @@ export function AuthProvider({ children }) {
     logout,
     refreshUser: () => {
       const userId = localStorage.getItem('userId');
-      if (userId) fetchUser(userId);
+      return userId ? fetchUser(userId) : Promise.resolve();
     },
+    updateUserXp,
   };
 
   return (

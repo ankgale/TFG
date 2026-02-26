@@ -17,7 +17,7 @@ function LessonDetail() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const { lesson: lessonText, sampleLesson } = translations;
-  const { isAuthenticated, refreshUser } = useAuth();
+  const { refreshUser, updateUserXp } = useAuth();
   
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,23 +80,28 @@ function LessonDetail() {
       const totalQuizzes = lesson.quizzes.length;
       const score = Math.round((correctAnswers / totalQuizzes) * 100);
       
-      if (isAuthenticated) {
+      const hasToken = typeof localStorage !== 'undefined' && localStorage.getItem('token');
+
+      if (hasToken) {
         try {
           const result = await lessonsApi.completeLesson(lessonId, score);
-          // Use the real XP earned from the server (0 if already completed before)
           setEarnedXp(prev => prev + (result.xp_earned || 0));
-          // Refresh user data so the sidebar XP/level updates immediately
-          refreshUser();
+          if (result.new_xp_total != null && result.new_level != null) {
+            updateUserXp({
+              xp_points: result.new_xp_total,
+              level: result.new_level,
+              xp_to_next_level: result.xp_to_next_level ?? (result.new_level * 1000 - result.new_xp_total),
+            });
+          }
+          await refreshUser();
         } catch (error) {
           console.error('Failed to record lesson completion:', error);
-          // Still show the completion screen even if the API call fails
           setEarnedXp(prev => prev + lesson.xp_reward);
         }
       } else {
-        // Not logged in — just show local XP (not persisted)
         setEarnedXp(prev => prev + lesson.xp_reward);
       }
-      
+
       setCurrentStep('complete');
     }
   };

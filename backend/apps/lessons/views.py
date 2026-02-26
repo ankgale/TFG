@@ -126,8 +126,10 @@ class LessonViewSet(viewsets.ModelViewSet):
         # Award XP only on first completion
         xp_earned = 0
         if created:
-            xp_earned = lesson.xp_reward
+            xp_earned = lesson.xp_reward or 50
             user.add_xp(xp_earned)
+            # Reload from DB so response has exact persisted values
+            user.refresh_from_db()
         
         # Update module progress
         self._update_module_progress(user, lesson.module)
@@ -138,6 +140,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             'xp_earned': xp_earned,
             'new_xp_total': user.xp_points,
             'new_level': user.level,
+            'xp_to_next_level': user.xp_to_next_level,
         })
     
     def _update_module_progress(self, user, module):
