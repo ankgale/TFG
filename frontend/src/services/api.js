@@ -224,9 +224,9 @@ export const usersApi = {
   getAchievements: () => fetchApi('/users/achievements/'),
   
   /**
-   * Get user achievements.
+   * Get user achievements (uses auth token).
    */
-  getUserAchievements: (userId) => fetchApi(`/users/user-achievements/?user_id=${userId}`),
+  getUserAchievements: () => fetchApi('/users/user-achievements/'),
 
   /**
    * Login user.

@@ -16,6 +16,7 @@ from .serializers import (
 )
 from .services import StockService
 from .config import STOCK_SYMBOLS
+from apps.users.achievements import check_achievements
 
 
 class StockViewSet(viewsets.ReadOnlyModelViewSet):
@@ -81,33 +82,33 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
 class PortfolioViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for Portfolio model.
+    Uses the authenticated user automatically.
     """
     
     serializer_class = PortfolioSerializer
     
     def get_queryset(self):
-        user_id = self.request.query_params.get('user_id')
+        user = self.request.user
         queryset = Portfolio.objects.select_related('stock')
-        
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        
-        return queryset
+        if user.is_authenticated:
+            return queryset.filter(user=user)
+        return queryset.none()
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        """Get portfolio summary for a user."""
-        user_id = request.query_params.get('user_id')
+        """Get portfolio summary for the authenticated user."""
+        user = request.user
         
-        if not user_id:
+        if not user.is_authenticated:
             return Response({
                 'total_value': 0,
                 'total_cost': 0,
                 'total_profit_loss': 0,
-                'holdings_count': 0
+                'holdings_count': 0,
+                'virtual_balance': 100000.00,
             })
         
-        holdings = Portfolio.objects.filter(user_id=user_id).select_related('stock')
+        holdings = Portfolio.objects.filter(user=user).select_related('stock')
         
         total_value = sum(h.current_value for h in holdings)
         total_cost = sum(h.total_cost for h in holdings)
@@ -117,41 +118,48 @@ class PortfolioViewSet(viewsets.ReadOnlyModelViewSet):
             'total_cost': float(total_cost),
             'total_profit_loss': float(total_value - total_cost),
             'profit_loss_percent': float(((total_value - total_cost) / total_cost) * 100) if total_cost > 0 else 0,
-            'holdings_count': holdings.count()
+            'holdings_count': holdings.count(),
+            'virtual_balance': float(user.virtual_balance),
         })
 
 
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for Transaction model.
+    Uses the authenticated user automatically.
     """
     
     serializer_class = TransactionSerializer
     
     def get_queryset(self):
-        user_id = self.request.query_params.get('user_id')
+        user = self.request.user
         queryset = Transaction.objects.select_related('stock')
-        
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        
-        return queryset
+        if user.is_authenticated:
+            return queryset.filter(user=user)
+        return queryset.none()
 
 
 class TradeView(APIView):
     """
     API endpoint for executing trades.
+    Requires authentication — uses request.user for all operations.
     """
     
     def post(self, request):
         """Execute a buy or sell trade."""
+        user = request.user
+        if not user.is_authenticated:
+            return Response(
+                {'error': 'Authentication required'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
         serializer = TradeSerializer(data=request.data)
         
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        user_id = data.get('user_id')
         stock_id = data['stock_id']
         shares = Decimal(str(data['shares']))
         transaction_type = data['transaction_type']
@@ -173,34 +181,36 @@ class TradeView(APIView):
         total_amount = shares * stock.current_price
         
         if transaction_type == 'buy':
-            result = self._execute_buy(user_id, stock, shares, total_amount)
+            result = self._execute_buy(user, stock, shares, total_amount)
         else:
-            result = self._execute_sell(user_id, stock, shares, total_amount)
+            result = self._execute_sell(user, stock, shares, total_amount)
         
         if 'error' in result:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
         
+        # Update daily streak on trades too
+        user.update_streak()
+        
+        # Check for newly unlocked achievements
+        new_achievements = check_achievements(user)
+        if new_achievements:
+            result['new_achievements'] = [
+                {'name': a.name, 'icon': a.icon, 'xp_reward': a.xp_reward}
+                for a in new_achievements
+            ]
+        
         return Response(result)
     
-    def _execute_buy(self, user_id, stock, shares, total_amount):
+    def _execute_buy(self, user, stock, shares, total_amount):
         """Execute a buy order."""
-        from apps.users.models import User
+        if user.virtual_balance < total_amount:
+            return {'error': 'Insufficient balance'}
         
-        # Check user balance (if user exists)
-        if user_id:
-            try:
-                user = User.objects.get(id=user_id)
-                if user.virtual_balance < total_amount:
-                    return {'error': 'Insufficient balance'}
-                
-                user.virtual_balance -= total_amount
-                user.save()
-            except User.DoesNotExist:
-                pass
+        user.virtual_balance -= total_amount
+        user.save()
         
-        # Update or create portfolio
         portfolio, created = Portfolio.objects.get_or_create(
-            user_id=user_id,
+            user=user,
             stock=stock,
             defaults={
                 'shares': shares,
@@ -209,16 +219,14 @@ class TradeView(APIView):
         )
         
         if not created:
-            # Calculate new average price
             total_shares = portfolio.shares + shares
             total_cost = (portfolio.shares * portfolio.average_buy_price) + total_amount
             portfolio.average_buy_price = total_cost / total_shares
             portfolio.shares = total_shares
             portfolio.save()
         
-        # Record transaction
         transaction = Transaction.objects.create(
-            user_id=user_id,
+            user=user,
             stock=stock,
             transaction_type='buy',
             shares=shares,
@@ -229,32 +237,23 @@ class TradeView(APIView):
         return {
             'message': f'Successfully bought {shares} shares of {stock.symbol}',
             'transaction': TransactionSerializer(transaction).data,
-            'portfolio': PortfolioSerializer(portfolio).data
+            'portfolio': PortfolioSerializer(portfolio).data,
+            'virtual_balance': float(user.virtual_balance),
         }
     
-    def _execute_sell(self, user_id, stock, shares, total_amount):
+    def _execute_sell(self, user, stock, shares, total_amount):
         """Execute a sell order."""
-        from apps.users.models import User
-        
-        # Check portfolio
         try:
-            portfolio = Portfolio.objects.get(user_id=user_id, stock=stock)
+            portfolio = Portfolio.objects.get(user=user, stock=stock)
         except Portfolio.DoesNotExist:
             return {'error': 'No shares to sell'}
         
         if portfolio.shares < shares:
             return {'error': f'Insufficient shares. You have {portfolio.shares}'}
         
-        # Update user balance
-        if user_id:
-            try:
-                user = User.objects.get(id=user_id)
-                user.virtual_balance += total_amount
-                user.save()
-            except User.DoesNotExist:
-                pass
+        user.virtual_balance += total_amount
+        user.save()
         
-        # Update portfolio
         portfolio.shares -= shares
         if portfolio.shares == 0:
             portfolio.delete()
@@ -263,9 +262,8 @@ class TradeView(APIView):
             portfolio.save()
             portfolio_data = PortfolioSerializer(portfolio).data
         
-        # Record transaction
         transaction = Transaction.objects.create(
-            user_id=user_id,
+            user=user,
             stock=stock,
             transaction_type='sell',
             shares=shares,
@@ -276,26 +274,25 @@ class TradeView(APIView):
         return {
             'message': f'Successfully sold {shares} shares of {stock.symbol}',
             'transaction': TransactionSerializer(transaction).data,
-            'portfolio': portfolio_data
+            'portfolio': portfolio_data,
+            'virtual_balance': float(user.virtual_balance),
         }
 
 
 class WatchlistViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Watchlist model.
+    Uses the authenticated user automatically.
     """
     
     serializer_class = WatchlistSerializer
     
     def get_queryset(self):
-        user_id = self.request.query_params.get('user_id')
+        user = self.request.user
         queryset = Watchlist.objects.select_related('stock')
-        
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        
-        return queryset
+        if user.is_authenticated:
+            return queryset.filter(user=user)
+        return queryset.none()
     
     def perform_create(self, serializer):
-        user_id = self.request.data.get('user_id')
-        serializer.save(user_id=user_id)
+        serializer.save(user=self.request.user)

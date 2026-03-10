@@ -5,6 +5,8 @@ Custom user model with gamification fields.
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 
 
 class User(AbstractUser):
@@ -45,10 +47,28 @@ class User(AbstractUser):
     def add_xp(self, amount: int) -> None:
         """Add XP points and check for level up."""
         self.xp_points += amount
-        # Level up every 1000 XP
         new_level = (self.xp_points // 1000) + 1
         if new_level > self.level:
             self.level = new_level
+        self.save()
+    
+    def update_streak(self) -> None:
+        """Update the daily activity streak.
+        
+        Called whenever the user performs a tracked activity (lesson completion, trade).
+        If the user was active yesterday, increment. If today already, do nothing.
+        Otherwise the streak resets to 1.
+        """
+        today = timezone.localdate()
+        if self.last_activity_date == today:
+            return
+        
+        if self.last_activity_date == today - timedelta(days=1):
+            self.streak_days += 1
+        else:
+            self.streak_days = 1
+        
+        self.last_activity_date = today
         self.save()
     
     @property

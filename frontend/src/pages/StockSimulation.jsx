@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   RefreshCw, 
   TrendingUp, 
@@ -6,12 +6,14 @@ import {
   DollarSign,
   PieChart,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import clsx from 'clsx';
 import StockCard from '../components/StockCard';
 import StockChart from '../components/StockChart';
 import { stocksApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useStockPrices } from '../hooks/useWebSocket';
 import translations from '../i18n/translations';
 
@@ -52,6 +54,7 @@ const generateSampleChartData = (basePrice) => {
 
 function StockSimulation() {
   const { stocks: stocksText, periods: periodsText } = translations;
+  const { user, isAuthenticated, refreshUser } = useAuth();
   
   const [stocks, setStocks] = useState(sampleStocks);
   const [selectedStock, setSelectedStock] = useState(null);
@@ -61,21 +64,38 @@ function StockSimulation() {
   const [refreshing, setRefreshing] = useState(false);
   const [tradeModal, setTradeModal] = useState({ open: false, type: 'buy' });
   const [tradeAmount, setTradeAmount] = useState('');
+  const [portfolio, setPortfolio] = useState({
+    balance: 100000.00,
+    holdings: [],
+    totalValue: 100000.00,
+    totalProfitLoss: 0,
+  });
   
   // WebSocket for real-time updates
   const { stocks: wsStocks, isConnected, refreshPrices } = useStockPrices();
 
-  // Virtual portfolio (mock data for now)
-  const portfolio = {
-    balance: 100000.00,
-    holdings: [],
-    totalValue: 100000.00,
-  };
+  const fetchPortfolio = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const [summaryData, holdingsData] = await Promise.all([
+        stocksApi.getPortfolioSummary(),
+        stocksApi.getPortfolio(),
+      ]);
+      const holdings = holdingsData?.results ?? holdingsData ?? [];
+      setPortfolio({
+        balance: summaryData.virtual_balance ?? user?.virtual_balance ?? 100000,
+        holdings,
+        totalValue: (summaryData.virtual_balance ?? 100000) + (summaryData.total_value ?? 0),
+        totalProfitLoss: summaryData.total_profit_loss ?? 0,
+      });
+    } catch (error) {
+      console.log('Portfolio fetch failed:', error.message);
+    }
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     async function fetchStocks() {
       try {
-        // Try to initialize and fetch stocks
         await stocksApi.initializeStocks();
         await stocksApi.refreshPrices();
         const data = await stocksApi.getStocks();
@@ -90,7 +110,8 @@ function StockSimulation() {
     }
 
     fetchStocks();
-  }, []);
+    fetchPortfolio();
+  }, [fetchPortfolio]);
 
   // Update stocks from WebSocket
   useEffect(() => {
@@ -142,24 +163,28 @@ function StockSimulation() {
     }
   };
 
+  const [tradeError, setTradeError] = useState('');
+
   const handleTrade = async () => {
     const shares = parseFloat(tradeAmount);
     if (!shares || shares <= 0 || !selectedStock) return;
+    setTradeError('');
 
     try {
-      await stocksApi.executeTrade(
+      const result = await stocksApi.executeTrade(
         selectedStock.id,
         shares,
         tradeModal.type,
-        null // user_id - will be set when auth is implemented
       );
       
       setTradeModal({ open: false, type: 'buy' });
       setTradeAmount('');
-      // TODO: Refresh portfolio
+      // Refresh portfolio and user data (balance changed)
+      await fetchPortfolio();
+      refreshUser();
     } catch (error) {
       console.error('Trade failed:', error);
-      // TODO: Show error toast
+      setTradeError(error.message || 'Error al ejecutar la operación');
     }
   };
 
@@ -241,7 +266,9 @@ function StockSimulation() {
             </div>
             <div>
               <p className="text-sm text-gray-500">{stocksText.totalGainLoss}</p>
-              <p className="text-xl font-bold text-green-600">+$0.00</p>
+              <p className={clsx('text-xl font-bold', portfolio.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600')}>
+                {portfolio.totalProfitLoss >= 0 ? '+' : ''}${portfolio.totalProfitLoss.toFixed(2)}
+              </p>
             </div>
           </div>
         </div>
@@ -254,7 +281,7 @@ function StockSimulation() {
             <div>
               <p className="text-sm text-gray-500">{stocksText.holdings}</p>
               <p className="text-xl font-bold text-gray-900">
-                {portfolio.holdings.length} {stocksText.stocks.toLowerCase()}
+                {portfolio.holdings?.length || 0} {stocksText.stocks.toLowerCase()}
               </p>
             </div>
           </div>
@@ -268,12 +295,10 @@ function StockSimulation() {
             <h2 className="text-lg font-bold text-gray-900 mb-4">{stocksText.stocks}</h2>
             
             {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-20 bg-gray-100 rounded-xl" />
-                  </div>
-                ))}
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Loader2 className="w-10 h-10 text-primary-500 animate-spin mb-4" />
+                <p className="text-sm font-medium text-gray-700">{stocksText.loadingStocks}</p>
+                <p className="text-xs text-gray-400 mt-1">{stocksText.loadingStocksDesc}</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
@@ -373,6 +398,16 @@ function StockSimulation() {
                 </button>
               </div>
             </div>
+          ) : loading ? (
+            <div className="card flex flex-col items-center justify-center h-96 text-center">
+              <Loader2 className="w-12 h-12 text-primary-500 animate-spin mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-1">
+                {stocksText.loadingStocks}
+              </h3>
+              <p className="text-sm text-gray-400">
+                {stocksText.loadingStocksDesc}
+              </p>
+            </div>
           ) : (
             <div className="card flex flex-col items-center justify-center h-96 text-center">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -434,9 +469,16 @@ function StockSimulation() {
               </div>
             )}
 
+            {tradeError && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{tradeError}</span>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
-                onClick={() => setTradeModal({ open: false, type: 'buy' })}
+                onClick={() => { setTradeModal({ open: false, type: 'buy' }); setTradeError(''); }}
                 className="btn btn-outline flex-1"
               >
                 {stocksText.cancel}

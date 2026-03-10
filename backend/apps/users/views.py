@@ -74,21 +74,17 @@ class AchievementViewSet(viewsets.ReadOnlyModelViewSet):
 class UserAchievementViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for UserAchievement model.
-    Shows achievements unlocked by users.
+    Shows achievements unlocked by the authenticated user.
     """
     
-    queryset = UserAchievement.objects.select_related('achievement', 'user')
     serializer_class = UserAchievementSerializer
     
     def get_queryset(self):
-        """Filter by user_id if provided."""
-        queryset = super().get_queryset()
-        user_id = self.request.query_params.get('user_id')
-        
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        
-        return queryset
+        user = self.request.user
+        queryset = UserAchievement.objects.select_related('achievement', 'user')
+        if user.is_authenticated:
+            return queryset.filter(user=user)
+        return queryset.none()
 
 
 class RegisterView(APIView):

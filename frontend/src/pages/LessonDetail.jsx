@@ -91,6 +91,7 @@ function LessonDetail() {
               xp_points: result.new_xp_total,
               level: result.new_level,
               xp_to_next_level: result.xp_to_next_level ?? (result.new_level * 1000 - result.new_xp_total),
+              streak_days: result.streak_days,
             });
           }
           await refreshUser();

@@ -81,11 +81,12 @@ class TransactionSerializer(serializers.ModelSerializer):
         source='stock',
         write_only=True
     )
+    stock_symbol = serializers.CharField(source='stock.symbol', read_only=True)
     
     class Meta:
         model = Transaction
         fields = [
-            'id', 'user', 'stock', 'stock_id',
+            'id', 'user', 'stock', 'stock_id', 'stock_symbol',
             'transaction_type', 'shares', 'price_per_share',
             'total_amount', 'executed_at'
         ]
@@ -114,4 +115,3 @@ class TradeSerializer(serializers.Serializer):
     stock_id = serializers.IntegerField()
     shares = serializers.DecimalField(max_digits=12, decimal_places=4)
     transaction_type = serializers.ChoiceField(choices=['buy', 'sell'])
-    user_id = serializers.IntegerField(required=False, allow_null=True)

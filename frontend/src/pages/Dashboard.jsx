@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Target, Trophy, Zap } from 'lucide-react';
 import ModuleCard from '../components/ModuleCard';
 import { lessonsApi } from '../services/api';
 import translations from '../i18n/translations';
@@ -8,23 +7,16 @@ function Dashboard() {
   const { dashboard, sampleModules } = translations;
   const [modules, setModules] = useState(sampleModules);
   const [loading, setLoading] = useState(true);
-  const [progressSummary, setProgressSummary] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [modulesData, progressData] = await Promise.all([
-          lessonsApi.getModules(),
-          lessonsApi.getProgressSummary(),
-        ]);
-        
+        const modulesData = await lessonsApi.getModules();
         if (modulesData && modulesData.length > 0) {
           setModules(modulesData);
         }
-        setProgressSummary(progressData);
       } catch (error) {
         console.log('Using sample data:', error.message);
-        // Keep sample modules if API fails
       } finally {
         setLoading(false);
       }
@@ -33,37 +25,6 @@ function Dashboard() {
     fetchData();
   }, []);
 
-  const stats = [
-    {
-      label: dashboard.modulesAvailable,
-      value: modules.length,
-      icon: BookOpen,
-      color: 'text-primary-500',
-      bgColor: 'bg-primary-50',
-    },
-    {
-      label: dashboard.totalLessons,
-      value: modules.reduce((sum, m) => sum + (m.lessons_count || 0), 0),
-      icon: Target,
-      color: 'text-accent-500',
-      bgColor: 'bg-accent-50',
-    },
-    {
-      label: dashboard.xpAvailable,
-      value: modules.reduce((sum, m) => sum + (m.xp_reward || 0), 0).toLocaleString(),
-      icon: Zap,
-      color: 'text-secondary-500',
-      bgColor: 'bg-secondary-50',
-    },
-    {
-      label: dashboard.completed,
-      value: progressSummary?.completed_modules || 0,
-      icon: Trophy,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-50',
-    },
-  ];
-
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
@@ -71,21 +32,6 @@ function Dashboard() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           {dashboard.title}
         </h1>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
-          <div key={stat.label} className="card flex items-center gap-4">
-            <div className={`w-12 h-12 ${stat.bgColor} rounded-xl flex items-center justify-center`}>
-              <stat.icon className={`w-6 h-6 ${stat.color}`} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-sm text-gray-500">{stat.label}</p>
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Daily Challenge Banner */}

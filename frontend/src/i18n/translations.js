@@ -15,6 +15,9 @@ const translations = {
     stockSimulation: 'Simulador de Bolsa',
     stockSimulationDesc: 'Practica trading',
     achievements: 'Logros',
+    achievementsDesc: 'Desbloquea logros',
+    transactionHistory: 'Historial',
+    transactionHistoryDesc: 'Tus operaciones',
     modes: 'Modos',
   },
 
@@ -126,6 +129,8 @@ const translations = {
     cancel: 'Cancelar',
     confirmBuy: 'Confirmar Compra',
     confirmSell: 'Confirmar Venta',
+    loadingStocks: 'Cargando datos del mercado...',
+    loadingStocksDesc: 'Obteniendo precios en tiempo real. Esto puede tardar unos segundos.',
   },
 
   // Chart periods

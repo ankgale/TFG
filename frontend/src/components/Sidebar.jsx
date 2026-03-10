@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { 
   BookOpen, 
@@ -7,15 +8,35 @@ import {
   Target,
   User,
   LogIn,
-  LogOut
+  LogOut,
+  Clock
 } from 'lucide-react';
 import clsx from 'clsx';
 import translations from '../i18n/translations';
 import { useAuth } from '../contexts/AuthContext';
+import { usersApi } from '../services/api';
 
 function Sidebar() {
   const { nav, user: userText, appName, auth: authText } = translations;
   const { user, isAuthenticated, logout, loading } = useAuth();
+  const [achievementCounts, setAchievementCounts] = useState({ unlocked: 0, total: 0 });
+
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const all = await usersApi.getAchievements();
+        const totalList = all?.results ?? all ?? [];
+        let unlockedCount = 0;
+        if (isAuthenticated) {
+          const unlocked = await usersApi.getUserAchievements();
+          const uList = unlocked?.results ?? unlocked ?? [];
+          unlockedCount = uList.length;
+        }
+        setAchievementCounts({ unlocked: unlockedCount, total: totalList.length });
+      } catch (_) { /* ignore */ }
+    }
+    fetchCounts();
+  }, [isAuthenticated, user]);
   
   // Default stats for non-authenticated users
   const displayUser = isAuthenticated && user ? {
@@ -44,6 +65,18 @@ function Sidebar() {
       icon: TrendingUp,
       label: nav.stockSimulation,
       description: nav.stockSimulationDesc,
+    },
+    {
+      to: '/achievements',
+      icon: Trophy,
+      label: nav.achievements,
+      description: nav.achievementsDesc || 'Desbloquea logros',
+    },
+    {
+      to: '/transactions',
+      icon: Clock,
+      label: nav.transactionHistory || 'Historial',
+      description: nav.transactionHistoryDesc || 'Tus operaciones',
     },
   ];
 
@@ -177,19 +210,9 @@ function Sidebar() {
         </ul>
       </nav>
 
-      {/* Bottom Section: Achievements & Logout */}
-      <div className="p-4 border-t border-gray-100 space-y-3">
-        {/* Achievements */}
-        <div className="flex items-center gap-2 text-gray-600 hover:text-primary-500 cursor-pointer transition-colors">
-          <Trophy className="w-5 h-5 text-secondary-500" />
-          <span className="text-sm font-medium">{nav.achievements}</span>
-          <span className="ml-auto bg-secondary-100 text-secondary-700 text-xs font-semibold px-2 py-1 rounded-full">
-            {isAuthenticated ? '0/12' : '0/12'}
-          </span>
-        </div>
-
-        {/* Logout button (only when authenticated) */}
-        {isAuthenticated && (
+      {/* Bottom Section: Logout */}
+      {isAuthenticated && (
+        <div className="p-4 border-t border-gray-100">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
@@ -197,8 +220,8 @@ function Sidebar() {
             <LogOut className="w-4 h-4" />
             <span className="text-sm font-medium">{authText.logout}</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 }

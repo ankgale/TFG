@@ -14,6 +14,7 @@ from .serializers import (
     QuizSerializer,
     UserLessonProgressSerializer, UserModuleProgressSerializer
 )
+from apps.users.achievements import check_achievements
 
 
 class ModuleViewSet(viewsets.ModelViewSet):
@@ -128,11 +129,17 @@ class LessonViewSet(viewsets.ModelViewSet):
         if created:
             xp_earned = lesson.xp_reward or 50
             user.add_xp(xp_earned)
-            # Reload from DB so response has exact persisted values
-            user.refresh_from_db()
+        
+        # Update daily streak on every completion
+        user.update_streak()
+        user.refresh_from_db()
         
         # Update module progress
         self._update_module_progress(user, lesson.module)
+        
+        # Check for newly unlocked achievements
+        new_achievements = check_achievements(user)
+        user.refresh_from_db()
         
         serializer = UserLessonProgressSerializer(progress)
         return Response({
@@ -141,6 +148,11 @@ class LessonViewSet(viewsets.ModelViewSet):
             'new_xp_total': user.xp_points,
             'new_level': user.level,
             'xp_to_next_level': user.xp_to_next_level,
+            'streak_days': user.streak_days,
+            'new_achievements': [
+                {'name': a.name, 'icon': a.icon, 'xp_reward': a.xp_reward}
+                for a in new_achievements
+            ],
         })
     
     def _update_module_progress(self, user, module):
@@ -206,16 +218,19 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
 class UserProgressViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for viewing user progress.
+    Uses the authenticated user automatically.
     """
     
     serializer_class = UserModuleProgressSerializer
     
     def get_queryset(self):
-        user_id = self.request.query_params.get('user_id')
+        user = self.request.user
         queryset = UserModuleProgress.objects.select_related('module')
         
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
+        if user.is_authenticated:
+            queryset = queryset.filter(user=user)
+        else:
+            queryset = queryset.none()
         
         return queryset
     
