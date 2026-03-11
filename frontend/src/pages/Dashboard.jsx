@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ModuleCard from '../components/ModuleCard';
-import { lessonsApi } from '../services/api';
+import { lessonsApi, usersApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import translations from '../i18n/translations';
 
 function Dashboard() {
   const { dashboard, sampleModules } = translations;
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [modules, setModules] = useState(sampleModules);
   const [loading, setLoading] = useState(true);
+  const [dailyChallenge, setDailyChallenge] = useState({ completed_today: 0, goal: 3 });
 
   useEffect(() => {
     async function fetchData() {
@@ -22,8 +27,16 @@ function Dashboard() {
       }
     }
 
+    async function fetchChallenge() {
+      try {
+        const data = await usersApi.getDailyChallenge();
+        setDailyChallenge(data);
+      } catch (_) { /* ignore */ }
+    }
+
     fetchData();
-  }, []);
+    fetchChallenge();
+  }, [isAuthenticated]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -46,11 +59,27 @@ function Dashboard() {
           <div className="flex items-center gap-2">
             <div className="bg-white/20 rounded-xl px-4 py-2 backdrop-blur-sm">
               <p className="text-sm text-primary-100">{dashboard.progress}</p>
-              <p className="text-2xl font-bold">0/3</p>
+              <p className="text-2xl font-bold">
+                {dailyChallenge.completed_today}/{dailyChallenge.goal}
+              </p>
             </div>
-            <button className="btn bg-white text-primary-600 hover:bg-primary-50">
-              {dashboard.startLearning}
-            </button>
+            {dailyChallenge.completed_today >= dailyChallenge.goal ? (
+              <span className="btn bg-white/30 text-white cursor-default">
+                Completado
+              </span>
+            ) : (
+              <button
+                onClick={() => {
+                  const firstModule = modules[0];
+                  if (firstModule?.lessons?.[0]) {
+                    navigate(`/lesson/${firstModule.lessons[0].id}`);
+                  }
+                }}
+                className="btn bg-white text-primary-600 hover:bg-primary-50"
+              >
+                {dashboard.startLearning}
+              </button>
+            )}
           </div>
         </div>
       </div>

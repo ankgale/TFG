@@ -63,7 +63,10 @@ export function AuthProvider({ children }) {
     return response;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await usersApi.logout();
+    } catch (_) { /* token may already be invalid */ }
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
     setUser(null);

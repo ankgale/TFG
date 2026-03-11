@@ -243,6 +243,38 @@ export const usersApi = {
     method: 'POST',
     body: JSON.stringify({ username, password, password_confirm }),
   }),
+
+  /**
+   * Server-side logout (deletes token).
+   */
+  logout: () => fetchApi('/users/logout/', { method: 'POST' }),
+
+  /**
+   * Change password.
+   */
+  changePassword: (current_password, new_password) => fetchApi('/users/change-password/', {
+    method: 'POST',
+    body: JSON.stringify({ current_password, new_password }),
+  }),
+
+  /**
+   * Get / update own profile.
+   */
+  getProfile: () => fetchApi('/users/profile/'),
+  updateProfile: (data) => fetchApi('/users/profile/', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+
+  /**
+   * Leaderboard.
+   */
+  getLeaderboard: () => fetchApi('/users/leaderboard/'),
+
+  /**
+   * Daily challenge progress.
+   */
+  getDailyChallenge: () => fetchApi('/users/daily-challenge/'),
 };
 
 export default {
