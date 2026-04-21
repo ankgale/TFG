@@ -9,9 +9,11 @@ function Dashboard() {
   const { dashboard, sampleModules } = translations;
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [modules, setModules] = useState(sampleModules);
+  const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dailyChallenge, setDailyChallenge] = useState({ completed_today: 0, goal: 3 });
+  const [moduleProgress, setModuleProgress] = useState({});
+  const [completedLessonIds, setCompletedLessonIds] = useState(new Set());
 
   useEffect(() => {
     async function fetchData() {
@@ -19,12 +21,27 @@ function Dashboard() {
         const modulesData = await lessonsApi.getModules();
         if (modulesData && modulesData.length > 0) {
           setModules(modulesData);
+        } else {
+          setModules(sampleModules);
         }
       } catch (error) {
         console.log('Using sample data:', error.message);
+        setModules(sampleModules);
       } finally {
         setLoading(false);
       }
+    }
+
+    async function fetchProgress() {
+      if (!isAuthenticated) return;
+      try {
+        const [progress, completed] = await Promise.all([
+          lessonsApi.getModuleProgress(),
+          lessonsApi.getCompletedLessons(),
+        ]);
+        setModuleProgress(progress || {});
+        setCompletedLessonIds(new Set(completed || []));
+      } catch (_) { /* ignore */ }
     }
 
     async function fetchChallenge() {
@@ -35,8 +52,20 @@ function Dashboard() {
     }
 
     fetchData();
+    fetchProgress();
     fetchChallenge();
   }, [isAuthenticated]);
+
+  function findNextLesson() {
+    for (const mod of modules) {
+      if (!mod.lessons) continue;
+      const next = mod.lessons.find((l) => !completedLessonIds.has(l.id));
+      if (next) return next.id;
+    }
+    return null;
+  }
+
+  const nextLessonId = findNextLesson();
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -70,12 +99,12 @@ function Dashboard() {
             ) : (
               <button
                 onClick={() => {
-                  const firstModule = modules[0];
-                  if (firstModule?.lessons?.[0]) {
-                    navigate(`/lesson/${firstModule.lessons[0].id}`);
+                  if (nextLessonId) {
+                    navigate(`/lesson/${nextLessonId}`);
                   }
                 }}
-                className="btn bg-white text-primary-600 hover:bg-primary-50"
+                disabled={!nextLessonId}
+                className="btn bg-white text-primary-600 hover:bg-primary-50 disabled:opacity-50"
               >
                 {dashboard.startLearning}
               </button>
@@ -103,13 +132,18 @@ function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {modules.map((module) => (
-            <ModuleCard 
-              key={module.id} 
-              module={module} 
-              progress={0} // Will be calculated from user progress when auth is implemented
-            />
-          ))}
+          {modules.map((module) => {
+            const mp = moduleProgress[module.id];
+            const pct = mp ? mp.percentage : 0;
+            return (
+              <ModuleCard
+                key={module.id}
+                module={module}
+                progress={pct}
+                completedLessonIds={completedLessonIds}
+              />
+            );
+          })}
         </div>
       )}
 

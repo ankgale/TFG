@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight, BookOpen, Award } from 'lucide-react';
+import { ChevronRight, BookOpen, Award, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
 import translations from '../i18n/translations';
 
-function ModuleCard({ module, progress = 0 }) {
+function ModuleCard({ module, progress = 0, completedLessonIds = new Set() }) {
   const { module: moduleText } = translations;
   
   const difficultyColors = {
@@ -17,8 +17,9 @@ function ModuleCard({ module, progress = 0 }) {
   };
 
   return (
-    <div 
-      className="card-hover group"
+    <Link
+      to={`/module/${module.id}`}
+      className="card-hover group block"
       style={{ borderLeftColor: module.color, borderLeftWidth: '4px' }}
     >
       <div className="flex items-start justify-between mb-4">
@@ -52,7 +53,7 @@ function ModuleCard({ module, progress = 0 }) {
       <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
         <div className="flex items-center gap-1">
           <BookOpen className="w-4 h-4" />
-          <span>{module.lessons_count || 0} {moduleText.lessons}</span>
+          <span>{module.lessons_count || module.lessons?.length || 0} {moduleText.lessons}</span>
         </div>
         <div className="flex items-center gap-1">
           <Award className="w-4 h-4 text-secondary-500" />
@@ -81,22 +82,29 @@ function ModuleCard({ module, progress = 0 }) {
             {moduleText.lessons.charAt(0).toUpperCase() + moduleText.lessons.slice(1)}
           </p>
           <ul className="space-y-1">
-            {module.lessons.slice(0, 3).map((lesson, index) => (
-              <li key={lesson.id}>
-                <Link 
-                  to={`/lesson/${lesson.id}`}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-500 transition-colors py-1"
-                >
-                  <span className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium">
-                    {index + 1}
+            {module.lessons.slice(0, 3).map((lesson, index) => {
+              const isCompleted = completedLessonIds.has(lesson.id);
+              return (
+                <li key={lesson.id}>
+                  <span className="flex items-center gap-2 text-sm text-gray-600 py-1">
+                    <span className={clsx(
+                      'w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium',
+                      isCompleted
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-100',
+                    )}>
+                      {isCompleted ? <CheckCircle2 className="w-3 h-3" /> : index + 1}
+                    </span>
+                    <span className="truncate">{lesson.title}</span>
+                    {!isCompleted && (
+                      <span className="ml-auto xp-badge text-xs">
+                        +{lesson.xp_reward} XP
+                      </span>
+                    )}
                   </span>
-                  <span className="truncate">{lesson.title}</span>
-                  <span className="ml-auto xp-badge text-xs">
-                    +{lesson.xp_reward} XP
-                  </span>
-                </Link>
-              </li>
-            ))}
+                </li>
+              );
+            })}
             {module.lessons.length > 3 && (
               <li className="text-xs text-gray-400 pl-7">
                 +{module.lessons.length - 3} {moduleText.moreLessons}
@@ -105,7 +113,7 @@ function ModuleCard({ module, progress = 0 }) {
           </ul>
         </div>
       )}
-    </div>
+    </Link>
   );
 }
 

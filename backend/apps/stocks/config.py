@@ -6,16 +6,16 @@ Easy to modify - just change this list to update tracked stocks.
 # List of stocks to track
 # Format: (symbol, company_name, sector)
 TRACKED_STOCKS = [
-    ('AAPL', 'Apple Inc.', 'Technology'),
-    ('MSFT', 'Microsoft Corporation', 'Technology'),
-    ('GOOGL', 'Alphabet Inc.', 'Technology'),
-    ('JPM', 'JPMorgan Chase & Co.', 'Finance'),
-    ('V', 'Visa Inc.', 'Finance'),
-    ('JNJ', 'Johnson & Johnson', 'Healthcare'),
-    ('PG', 'Procter & Gamble Co.', 'Consumer Goods'),
-    ('XOM', 'Exxon Mobil Corporation', 'Energy'),
-    ('TSLA', 'Tesla Inc.', 'Automotive'),
-    ('KO', 'The Coca-Cola Company', 'Consumer Goods'),
+    ("AAPL", "Apple Inc.", "Technology"),
+    ("MSFT", "Microsoft Corporation", "Technology"),
+    ("GOOGL", "Alphabet Inc.", "Technology"),
+    ("JPM", "JPMorgan Chase & Co.", "Finance"),
+    ("V", "Visa Inc.", "Finance"),
+    ("JNJ", "Johnson & Johnson", "Healthcare"),
+    ("PG", "Procter & Gamble Co.", "Consumer Goods"),
+    ("XOM", "Exxon Mobil Corporation", "Energy"),
+    ("TSLA", "Tesla Inc.", "Automotive"),
+    ("KO", "The Coca-Cola Company", "Consumer Goods"),
 ]
 
 # Get just the symbols

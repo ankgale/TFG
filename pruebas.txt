@@ -1,0 +1,5 @@
+test de UX o usabilidad:
+	encuestas a distintos grupos de edades que prueben y den su opinion
+	procedimiento
+	tipo de prueba
+	en el cuerpo: solo resultados

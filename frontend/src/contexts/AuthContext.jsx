@@ -21,25 +21,25 @@ export function AuthProvider({ children }) {
   // Check for existing session on mount
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId');
     
-    if (token && userId) {
-      // Fetch user data
-      fetchUser(userId);
+    if (token) {
+      fetchUser();
     } else {
       setLoading(false);
     }
   }, []);
 
-  const fetchUser = async (userId) => {
+  const fetchUser = async () => {
     try {
-      const userData = await usersApi.getUser(userId);
+      // Use the authenticated profile endpoint — validates the token
+      const userData = await usersApi.getProfile();
       setUser(userData);
     } catch (error) {
-      // Token might be invalid, clear storage
-      console.error('Failed to fetch user:', error);
+      // Token is invalid or expired — force logout
+      console.error('Failed to fetch user (token invalid):', error);
       localStorage.removeItem('token');
       localStorage.removeItem('userId');
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('userId', response.user_id);
     
     // Fetch full user data
-    await fetchUser(response.user_id);
+    await fetchUser();
     
     return response;
   };
@@ -88,8 +88,8 @@ export function AuthProvider({ children }) {
     register,
     logout,
     refreshUser: () => {
-      const userId = localStorage.getItem('userId');
-      return userId ? fetchUser(userId) : Promise.resolve();
+      const token = localStorage.getItem('token');
+      return token ? fetchUser() : Promise.resolve();
     },
     updateUserXp,
   };

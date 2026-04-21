@@ -3,8 +3,8 @@ Management command to seed the initial set of achievements.
 """
 
 from django.core.management.base import BaseCommand
-from apps.users.models import Achievement
 
+from apps.users.models import Achievement
 
 ACHIEVEMENTS = [
     # Learning milestones
@@ -147,5 +147,7 @@ class Command(BaseCommand):
                 created += 1
 
         self.stdout.write(
-            self.style.SUCCESS(f"Seeded {created} new achievements ({len(ACHIEVEMENTS)} total defined).")
+            self.style.SUCCESS(
+                f"Seeded {created} new achievements ({len(ACHIEVEMENTS)} total defined)."
+            )
         )

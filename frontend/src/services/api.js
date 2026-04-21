@@ -47,7 +47,10 @@ export const lessonsApi = {
   /**
    * Get all modules.
    */
-  getModules: () => fetchApi('/lessons/modules/'),
+  getModules: async () => {
+    const data = await fetchApi('/lessons/modules/');
+    return data.results || data;
+  },
   
   /**
    * Get a single module by ID.
@@ -101,6 +104,16 @@ export const lessonsApi = {
   getProgressSummary: () => {
     return fetchApi(`/lessons/progress/summary/`);
   },
+
+  /**
+   * Get IDs of completed lessons for the authenticated user.
+   */
+  getCompletedLessons: () => fetchApi('/lessons/progress/completed_lessons/'),
+
+  /**
+   * Get per-module progress for the authenticated user.
+   */
+  getModuleProgress: () => fetchApi('/lessons/progress/module_progress/'),
 };
 
 // ============ Stocks API ============

@@ -2,19 +2,23 @@
 API views for Lessons app.
 """
 
-from rest_framework import viewsets, status
+from django.utils import timezone
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.utils import timezone
 
-from .models import Module, Lesson, Quiz, UserLessonProgress, UserModuleProgress
-from .serializers import (
-    ModuleSerializer, ModuleListSerializer,
-    LessonSerializer, LessonListSerializer,
-    QuizSerializer,
-    UserLessonProgressSerializer, UserModuleProgressSerializer
-)
 from apps.users.achievements import check_achievements
+
+from .models import Lesson, Module, Quiz, UserLessonProgress, UserModuleProgress
+from .serializers import (
+    LessonListSerializer,
+    LessonSerializer,
+    ModuleListSerializer,
+    ModuleSerializer,
+    QuizSerializer,
+    UserLessonProgressSerializer,
+    UserModuleProgressSerializer,
+)
 
 
 class ModuleViewSet(viewsets.ModelViewSet):
@@ -22,15 +26,19 @@ class ModuleViewSet(viewsets.ModelViewSet):
     ViewSet for Module model.
     Provides CRUD operations for learning modules.
     """
-    
-    queryset = Module.objects.filter(is_published=True).prefetch_related('lessons')
-    
+
+    queryset = (
+        Module.objects.filter(is_published=True)
+        .prefetch_related("lessons")
+        .order_by("order")
+    )
+
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action == "list":
             return ModuleListSerializer
         return ModuleSerializer
-    
-    @action(detail=True, methods=['get'])
+
+    @action(detail=True, methods=["get"])
     def lessons(self, request, pk=None):
         """Get all lessons for a module."""
         module = self.get_object()
@@ -44,142 +52,137 @@ class LessonViewSet(viewsets.ModelViewSet):
     ViewSet for Lesson model.
     Provides CRUD operations for lessons.
     """
-    
-    queryset = Lesson.objects.filter(is_published=True).select_related('module')
-    
+
+    queryset = Lesson.objects.filter(is_published=True).select_related("module")
+
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action == "list":
             return LessonListSerializer
         return LessonSerializer
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
-        module_id = self.request.query_params.get('module_id')
-        
+        module_id = self.request.query_params.get("module_id")
+
         if module_id:
             queryset = queryset.filter(module_id=module_id)
-        
+
         return queryset
-    
-    @action(detail=True, methods=['get'])
+
+    @action(detail=True, methods=["get"])
     def quizzes(self, request, pk=None):
         """Get all quizzes for a lesson."""
         lesson = self.get_object()
-        quizzes = lesson.quizzes.prefetch_related('options')
+        quizzes = lesson.quizzes.prefetch_related("options")
         serializer = QuizSerializer(quizzes, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def start(self, request, pk=None):
         """Mark a lesson as started."""
         lesson = self.get_object()
         user = request.user
-        
+
         if not user.is_authenticated:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
-        
+
         progress, created = UserLessonProgress.objects.get_or_create(
             user=user,
             lesson=lesson,
-            defaults={
-                'status': 'in_progress',
-                'started_at': timezone.now()
-            }
+            defaults={"status": "in_progress", "started_at": timezone.now()},
         )
-        
-        if not created and progress.status == 'not_started':
-            progress.status = 'in_progress'
+
+        if not created and progress.status == "not_started":
+            progress.status = "in_progress"
             progress.started_at = timezone.now()
             progress.save()
-        
+
         serializer = UserLessonProgressSerializer(progress)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         """Mark a lesson as completed."""
         lesson = self.get_object()
         user = request.user
-        score = request.data.get('score', 100)
-        
+        score = request.data.get("score", 100)
+
         if not user.is_authenticated:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
-        
+
         progress, created = UserLessonProgress.objects.get_or_create(
             user=user,
             lesson=lesson,
             defaults={
-                'status': 'completed',
-                'score': score,
-                'attempts': 1,
-                'started_at': timezone.now(),
-                'completed_at': timezone.now()
-            }
+                "status": "completed",
+                "score": score,
+                "attempts": 1,
+                "started_at": timezone.now(),
+                "completed_at": timezone.now(),
+            },
         )
-        
+
         if not created:
-            progress.status = 'completed'
+            progress.status = "completed"
             progress.score = max(progress.score, score)
             progress.attempts += 1
             progress.completed_at = timezone.now()
             progress.save()
-        
+
         # Award XP only on first completion
         xp_earned = 0
         if created:
             xp_earned = lesson.xp_reward or 50
             user.add_xp(xp_earned)
-        
+
         # Update daily streak on every completion
         user.update_streak()
         user.refresh_from_db()
-        
+
         # Update module progress
         self._update_module_progress(user, lesson.module)
-        
+
         # Check for newly unlocked achievements
         new_achievements = check_achievements(user)
         user.refresh_from_db()
-        
+
         serializer = UserLessonProgressSerializer(progress)
-        return Response({
-            'progress': serializer.data,
-            'xp_earned': xp_earned,
-            'new_xp_total': user.xp_points,
-            'new_level': user.level,
-            'xp_to_next_level': user.xp_to_next_level,
-            'streak_days': user.streak_days,
-            'new_achievements': [
-                {'name': a.name, 'icon': a.icon, 'xp_reward': a.xp_reward}
-                for a in new_achievements
-            ],
-        })
-    
+        return Response(
+            {
+                "progress": serializer.data,
+                "xp_earned": xp_earned,
+                "new_xp_total": user.xp_points,
+                "new_level": user.level,
+                "xp_to_next_level": user.xp_to_next_level,
+                "streak_days": user.streak_days,
+                "new_achievements": [
+                    {"name": a.name, "icon": a.icon, "xp_reward": a.xp_reward}
+                    for a in new_achievements
+                ],
+            }
+        )
+
     def _update_module_progress(self, user, module):
         """Update module progress when a lesson is completed."""
         if not user:
             return
-        
+
         completed_lessons = UserLessonProgress.objects.filter(
-            user=user,
-            lesson__module=module,
-            status='completed'
+            user=user, lesson__module=module, status="completed"
         ).count()
-        
+
         total_lessons = module.lessons_count
-        
+
         module_progress, _ = UserModuleProgress.objects.get_or_create(
-            user=user,
-            module=module,
-            defaults={'started_at': timezone.now()}
+            user=user, module=module, defaults={"started_at": timezone.now()}
         )
-        
+
         module_progress.lessons_completed = completed_lessons
-        
+
         if completed_lessons >= total_lessons:
             module_progress.is_completed = True
             module_progress.completed_at = timezone.now()
-        
+
         module_progress.save()
 
 
@@ -188,30 +191,31 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
     ViewSet for Quiz model.
     Read-only as quizzes are managed through admin.
     """
-    
-    queryset = Quiz.objects.prefetch_related('options')
+
+    queryset = Quiz.objects.prefetch_related("options")
     serializer_class = QuizSerializer
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def answer(self, request, pk=None):
         """Check if the provided answer is correct."""
         quiz = self.get_object()
-        option_id = request.data.get('option_id')
-        
+        option_id = request.data.get("option_id")
+
         try:
             option = quiz.options.get(id=option_id)
             is_correct = option.is_correct
-            
-            return Response({
-                'is_correct': is_correct,
-                'correct_answer': quiz.options.filter(is_correct=True).first().text,
-                'explanation': quiz.explanation,
-                'xp_earned': quiz.xp_reward if is_correct else 0
-            })
+
+            return Response(
+                {
+                    "is_correct": is_correct,
+                    "correct_answer": quiz.options.filter(is_correct=True).first().text,
+                    "explanation": quiz.explanation,
+                    "xp_earned": quiz.xp_reward if is_correct else 0,
+                }
+            )
         except Exception:
             return Response(
-                {'error': 'Invalid option'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid option"}, status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -220,47 +224,82 @@ class UserProgressViewSet(viewsets.ReadOnlyModelViewSet):
     ViewSet for viewing user progress.
     Uses the authenticated user automatically.
     """
-    
+
     serializer_class = UserModuleProgressSerializer
-    
+
     def get_queryset(self):
         user = self.request.user
-        queryset = UserModuleProgress.objects.select_related('module')
-        
+        queryset = UserModuleProgress.objects.select_related("module")
+
         if user.is_authenticated:
             queryset = queryset.filter(user=user)
         else:
             queryset = queryset.none()
-        
+
         return queryset
-    
-    @action(detail=False, methods=['get'])
+
+    @action(detail=False, methods=["get"])
     def summary(self, request):
         """Get overall progress summary."""
         user = request.user
-        
+
         if not user.is_authenticated:
-            return Response({
-                'total_modules': Module.objects.filter(is_published=True).count(),
-                'total_lessons': Lesson.objects.filter(is_published=True).count(),
-                'completed_modules': 0,
-                'completed_lessons': 0,
-                'total_xp_earned': 0
-            })
-        
+            return Response(
+                {
+                    "total_modules": Module.objects.filter(is_published=True).count(),
+                    "total_lessons": Lesson.objects.filter(is_published=True).count(),
+                    "completed_modules": 0,
+                    "completed_lessons": 0,
+                    "total_xp_earned": 0,
+                }
+            )
+
         completed_lessons = UserLessonProgress.objects.filter(
-            user=user,
-            status='completed'
+            user=user, status="completed"
         ).count()
-        
+
         completed_modules = UserModuleProgress.objects.filter(
-            user=user,
-            is_completed=True
+            user=user, is_completed=True
         ).count()
-        
-        return Response({
-            'total_modules': Module.objects.filter(is_published=True).count(),
-            'total_lessons': Lesson.objects.filter(is_published=True).count(),
-            'completed_modules': completed_modules,
-            'completed_lessons': completed_lessons,
-        })
+
+        return Response(
+            {
+                "total_modules": Module.objects.filter(is_published=True).count(),
+                "total_lessons": Lesson.objects.filter(is_published=True).count(),
+                "completed_modules": completed_modules,
+                "completed_lessons": completed_lessons,
+            }
+        )
+
+    @action(detail=False, methods=["get"])
+    def completed_lessons(self, request):
+        """Return list of completed lesson IDs for the authenticated user."""
+        user = request.user
+        if not user.is_authenticated:
+            return Response([])
+        lesson_ids = list(
+            UserLessonProgress.objects.filter(
+                user=user, status="completed"
+            ).values_list("lesson_id", flat=True)
+        )
+        return Response(lesson_ids)
+
+    @action(detail=False, methods=["get"])
+    def module_progress(self, request):
+        """Return per-module progress for the authenticated user."""
+        user = request.user
+        if not user.is_authenticated:
+            return Response({})
+        progress_qs = UserModuleProgress.objects.filter(user=user)
+        result = {}
+        for p in progress_qs:
+            total = p.module.lessons_count
+            result[p.module_id] = {
+                "lessons_completed": p.lessons_completed,
+                "total_lessons": total,
+                "percentage": round(
+                    (p.lessons_completed / total * 100) if total else 0
+                ),
+                "is_completed": p.is_completed,
+            }
+        return Response(result)

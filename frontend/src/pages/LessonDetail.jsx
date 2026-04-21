@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -12,6 +12,89 @@ import clsx from 'clsx';
 import { lessonsApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import translations from '../i18n/translations';
+
+function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function InlineFormat({ text }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.startsWith('**') && part.endsWith('**')
+          ? <strong key={i}>{part.slice(2, -2)}</strong>
+          : part
+      )}
+    </>
+  );
+}
+
+function MarkdownContent({ content }) {
+  const lines = content.split('\n');
+  const elements = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith('# ')) {
+      elements.push(<h1 key={i} className="text-2xl font-bold mt-6 mb-4"><InlineFormat text={line.slice(2)} /></h1>);
+    } else if (line.startsWith('## ')) {
+      elements.push(<h2 key={i} className="text-xl font-bold mt-6 mb-3 text-gray-800"><InlineFormat text={line.slice(3)} /></h2>);
+    } else if (line.startsWith('### ')) {
+      elements.push(<h3 key={i} className="text-lg font-semibold mt-4 mb-2 text-gray-700"><InlineFormat text={line.slice(4)} /></h3>);
+    } else if (line.startsWith('> ')) {
+      const quoteLines = [];
+      while (i < lines.length && lines[i].startsWith('> ')) {
+        quoteLines.push(lines[i].slice(2));
+        i++;
+      }
+      elements.push(
+        <blockquote key={`bq-${i}`} className="border-l-4 border-primary-400 bg-primary-50 pl-4 py-3 pr-3 my-4 rounded-r-xl text-gray-700 italic">
+          {quoteLines.map((ql, qi) => <p key={qi} className="my-0.5"><InlineFormat text={ql} /></p>)}
+        </blockquote>
+      );
+      continue;
+    } else if (line.match(/^- /)) {
+      const listItems = [];
+      while (i < lines.length && lines[i].match(/^- /)) {
+        listItems.push(lines[i].slice(2));
+        i++;
+      }
+      elements.push(
+        <ul key={`ul-${i}`} className="list-disc list-inside space-y-1 ml-2 my-2 text-gray-700">
+          {listItems.map((li, li_i) => <li key={li_i}><InlineFormat text={li} /></li>)}
+        </ul>
+      );
+      continue;
+    } else if (line.match(/^\d+\.\s/)) {
+      const listItems = [];
+      while (i < lines.length && lines[i].match(/^\d+\.\s/)) {
+        listItems.push(lines[i].replace(/^\d+\.\s/, ''));
+        i++;
+      }
+      elements.push(
+        <ol key={`ol-${i}`} className="list-decimal list-inside space-y-1 ml-2 my-2 text-gray-700">
+          {listItems.map((li, li_i) => <li key={li_i}><InlineFormat text={li} /></li>)}
+        </ol>
+      );
+      continue;
+    } else if (line.trim() === '') {
+      elements.push(<div key={i} className="h-3" />);
+    } else {
+      elements.push(<p key={i} className="text-gray-700 my-2 leading-relaxed"><InlineFormat text={line} /></p>);
+    }
+    i++;
+  }
+
+  return <>{elements}</>;
+}
 
 function LessonDetail() {
   const { lessonId } = useParams();
@@ -44,6 +127,14 @@ function LessonDetail() {
     fetchLesson();
   }, [lessonId, sampleLesson]);
 
+  const shuffledQuizzes = useMemo(() => {
+    if (!lesson?.quizzes) return [];
+    return lesson.quizzes.map((q) => ({
+      ...q,
+      options: shuffleArray(q.options),
+    }));
+  }, [lesson]);
+
   const handleStartQuiz = () => {
     setCurrentStep('quiz');
     setCurrentQuizIndex(0);
@@ -59,8 +150,8 @@ function LessonDetail() {
   const handleSubmitAnswer = () => {
     if (!selectedAnswer) return;
     
-    const currentQuiz = lesson.quizzes[currentQuizIndex];
-    const selectedOption = currentQuiz.options.find(o => o.id === selectedAnswer);
+    const quiz = shuffledQuizzes[currentQuizIndex];
+    const selectedOption = quiz.options.find(o => o.id === selectedAnswer);
     
     if (selectedOption?.is_correct) {
       setCorrectAnswers(prev => prev + 1);
@@ -71,13 +162,12 @@ function LessonDetail() {
   };
 
   const handleNextQuestion = async () => {
-    if (currentQuizIndex < lesson.quizzes.length - 1) {
+    if (currentQuizIndex < shuffledQuizzes.length - 1) {
       setCurrentQuizIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setShowResult(false);
     } else {
-      // Quiz complete — calculate score and tell the backend
-      const totalQuizzes = lesson.quizzes.length;
+      const totalQuizzes = shuffledQuizzes.length;
       const score = Math.round((correctAnswers / totalQuizzes) * 100);
       
       const hasToken = typeof localStorage !== 'undefined' && localStorage.getItem('token');
@@ -134,7 +224,7 @@ function LessonDetail() {
     );
   }
 
-  const currentQuiz = lesson.quizzes?.[currentQuizIndex];
+  const currentQuiz = shuffledQuizzes[currentQuizIndex];
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -160,13 +250,13 @@ function LessonDetail() {
       {currentStep === 'quiz' && (
         <div className="mb-6">
           <div className="flex justify-between text-sm text-gray-500 mb-2">
-            <span>{lessonText.question} {currentQuizIndex + 1} {lessonText.of} {lesson.quizzes.length}</span>
+            <span>{lessonText.question} {currentQuizIndex + 1} {lessonText.of} {shuffledQuizzes.length}</span>
             <span>{correctAnswers} {lessonText.correct}</span>
           </div>
           <div className="progress-bar">
             <div 
               className="progress-fill"
-              style={{ width: `${((currentQuizIndex + 1) / lesson.quizzes.length) * 100}%` }}
+              style={{ width: `${((currentQuizIndex + 1) / shuffledQuizzes.length) * 100}%` }}
             />
           </div>
         </div>
@@ -176,28 +266,7 @@ function LessonDetail() {
       {currentStep === 'content' && (
         <div className="card">
           <div className="prose prose-lg max-w-none">
-            {/* Simple markdown-like rendering */}
-            {lesson.content.split('\n').map((line, i) => {
-              if (line.startsWith('# ')) {
-                return <h1 key={i} className="text-2xl font-bold mt-6 mb-4">{line.slice(2)}</h1>;
-              }
-              if (line.startsWith('## ')) {
-                return <h2 key={i} className="text-xl font-bold mt-6 mb-3 text-gray-800">{line.slice(3)}</h2>;
-              }
-              if (line.startsWith('### ')) {
-                return <h3 key={i} className="text-lg font-semibold mt-4 mb-2 text-gray-700">{line.slice(4)}</h3>;
-              }
-              if (line.startsWith('**') && line.endsWith('**')) {
-                return <p key={i} className="font-bold">{line.slice(2, -2)}</p>;
-              }
-              if (line.match(/^\d\./)) {
-                return <p key={i} className="ml-4 my-1">{line}</p>;
-              }
-              if (line.trim() === '') {
-                return <br key={i} />;
-              }
-              return <p key={i} className="text-gray-700 my-2">{line}</p>;
-            })}
+            <MarkdownContent content={lesson.content} />
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-100">
@@ -206,7 +275,7 @@ function LessonDetail() {
               className="btn btn-primary w-full py-3"
             >
               <BookOpen className="w-5 h-5 mr-2" />
-              {lessonText.startQuiz} ({lesson.quizzes?.length || 0} {lessonText.questions})
+              {lessonText.startQuiz} ({shuffledQuizzes.length} {lessonText.questions})
             </button>
           </div>
         </div>
@@ -294,7 +363,7 @@ function LessonDetail() {
                 onClick={handleNextQuestion}
                 className="btn btn-primary flex-1 py-3"
               >
-                {currentQuizIndex < lesson.quizzes.length - 1 ? (
+                {currentQuizIndex < shuffledQuizzes.length - 1 ? (
                   <>
                     {lessonText.nextQuestion}
                     <ChevronRight className="w-5 h-5 ml-1" />
@@ -319,7 +388,7 @@ function LessonDetail() {
             {lessonText.lessonComplete}
           </h2>
           <p className="text-gray-600 mb-6">
-            {lessonText.youAnswered} {correctAnswers} {lessonText.outOf} {lesson.quizzes.length} {lessonText.questionsCorrectly}
+            {lessonText.youAnswered} {correctAnswers} {lessonText.outOf} {shuffledQuizzes.length} {lessonText.questionsCorrectly}
           </p>
 
           <div className="inline-flex items-center gap-2 bg-secondary-100 text-secondary-700 px-6 py-3 rounded-xl text-lg font-bold mb-8">
@@ -328,7 +397,7 @@ function LessonDetail() {
           </div>
 
           <div className="flex gap-3 justify-center">
-            <Link to="/" className="btn btn-outline">
+            <Link to={lesson.module ? `/module/${lesson.module}` : '/'} className="btn btn-outline">
               {lessonText.backToModules}
             </Link>
             <button 

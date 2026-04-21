@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
+import ModuleDetail from './pages/ModuleDetail'
 import LessonDetail from './pages/LessonDetail'
 import StockSimulation from './pages/StockSimulation'
 import Achievements from './pages/Achievements'
@@ -18,6 +19,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="module/:moduleId" element={<ModuleDetail />} />
           <Route path="lesson/:lessonId" element={<LessonDetail />} />
           <Route path="simulation" element={<ProtectedRoute><StockSimulation /></ProtectedRoute>} />
           <Route path="achievements" element={<Achievements />} />
