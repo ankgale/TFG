@@ -1,353 +1,225 @@
-# FinLearn - Duolingo-Style Financial Education App
+# FinLearn — Duolingo-Style Financial Education
 
-A production-ready template for a gamified financial education platform featuring interactive learning modules and a stock market simulation.
+A production-ready **bachelor’s thesis (TFG)** project: a gamified financial learning platform with interactive modules, gamification, and a stock market paper-trading simulation. The **end-user UI is in Spanish**; code and API-facing identifiers stay in **English**.
 
 ## Features
 
-- **Learning Modules**: Duolingo-style lessons with interactive quizzes
-- **Gamification**: XP points, levels, streaks, and achievements
-- **Stock Market Simulation**: Paper trading with real-time stock data
-- **Real-time Updates**: WebSocket support for live stock prices
-- **Modern UI**: Beautiful, responsive Duolingo-inspired design
-- **Spanish UI**: All user-facing text in Spanish (code remains in English)
+- **Learning modules** — lessons with quizzes and per-module progress
+- **Gamification** — XP, levels, streaks, achievements, and a daily challenge
+- **Stock simulation** — paper trading with live-style quotes via **yfinance**
+- **Real-time updates** — WebSockets for price refresh
+- **Auth** — registration, login, and **DRF token** authentication (`Authorization: Token …`)
+- **App routes** — dashboard, module/lesson flow, trading sim, achievements, transaction history, profile, leaderboard, login/register
 
-## Tech Stack
+## Tech stack
 
 ### Backend
-- **Django 5.x** - Web framework
-- **Django REST Framework** - API development
-- **Django Channels** - WebSocket support for real-time features
-- **SQLite** (development) / **PostgreSQL** (production)
-- **yfinance** - Stock market data
+- **Django 5.2** — web framework
+- **Django REST Framework** — REST API, pagination
+- **DRF token auth** and **SessionAuthentication**
+- **Django Channels** + **Daphne** — WebSockets; default **in-memory** channel layer (use **Redis** in production)
+- **django-cors-headers** — CORS to the Vite dev origin
+- **SQLite** in development; **PostgreSQL** dependency included for production-style setups
+- **yfinance** — market data
 
 ### Frontend
-- **React 18** - UI library
-- **Vite** - Build tool and dev server
-- **TailwindCSS** - Styling
-- **Recharts** - Stock charts
-- **React Router** - Navigation
-- **Lucide React** - Icons
+- **React 18** + **Vite 5**
+- **TailwindCSS 3**
+- **React Router 6**
+- **Recharts** — charts
+- **Lucide React** — icons
+- **date-fns**, **clsx**
+- User-visible strings: `frontend/src/i18n/translations.js`
 
-## Project Structure
+## Repository layout
 
 ```
 tfg/
 ├── backend/
-│   ├── config/                 # Django project configuration
-│   │   ├── settings.py         # Main settings
-│   │   ├── urls.py             # Root URL configuration
-│   │   ├── asgi.py             # ASGI config (WebSocket support)
-│   │   └── wsgi.py             # WSGI config
+│   ├── config/                 # settings, urls, asgi, wsgi
 │   ├── apps/
-│   │   ├── users/              # User management & gamification
-│   │   │   ├── models.py       # User, Achievement models
-│   │   │   ├── views.py        # User API endpoints
-│   │   │   ├── serializers.py  # DRF serializers
-│   │   │   └── urls.py         # URL routing
-│   │   ├── lessons/            # Learning content
-│   │   │   ├── models.py       # Module, Lesson, Quiz models
-│   │   │   ├── views.py        # Lessons API endpoints
-│   │   │   ├── serializers.py  # DRF serializers
-│   │   │   └── urls.py         # URL routing
-│   │   └── stocks/             # Stock simulation
-│   │       ├── models.py       # Stock, Portfolio, Transaction models
-│   │       ├── views.py        # Stocks API endpoints
-│   │       ├── services.py     # Stock data fetching (yfinance)
-│   │       ├── consumers.py    # WebSocket consumers
-│   │       ├── routing.py      # WebSocket routing
-│   │       └── config.py       # Tracked stocks configuration
-│   ├── requirements.txt        # Python dependencies
-│   └── manage.py               # Django CLI
+│   │   ├── users/              # user model, auth, achievements, leaderboard, daily challenge
+│   │   ├── lessons/            # modules, lessons, quizzes, progress
+│   │   └── stocks/             # stocks, portfolio, trades, watchlist, websockets
+│   ├── requirements.txt
+│   └── manage.py
 ├── frontend/
 │   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── Layout.jsx      # Main layout with sidebar
-│   │   │   ├── Sidebar.jsx     # Navigation sidebar
-│   │   │   ├── ModuleCard.jsx  # Learning module card
-│   │   │   ├── StockCard.jsx   # Stock display card
-│   │   │   └── StockChart.jsx  # Price chart component
-│   │   ├── pages/              # Page components
-│   │   │   ├── Dashboard.jsx   # Learning modules dashboard
-│   │   │   ├── LessonDetail.jsx # Lesson content & quiz
-│   │   │   └── StockSimulation.jsx # Trading simulation
-│   │   ├── services/           # API services
-│   │   │   └── api.js          # Backend API client
-│   │   ├── hooks/              # Custom React hooks
-│   │   │   └── useWebSocket.js # WebSocket hook for real-time data
-│   │   ├── App.jsx             # Main app component
-│   │   ├── main.jsx            # Entry point
-│   │   └── index.css           # Global styles
-│   ├── package.json            # Node dependencies
-│   ├── vite.config.js          # Vite configuration
-│   ├── tailwind.config.js      # Tailwind configuration
-│   └── index.html              # HTML template
+│   │   ├── components/         # Layout, Sidebar, cards, StockChart, ProtectedRoute, …
+│   │   ├── pages/              # Dashboard, ModuleDetail, LessonDetail, StockSimulation, …
+│   │   ├── contexts/           # AuthContext
+│   │   ├── services/           # api.js (HTTP + token)
+│   │   ├── hooks/              # useWebSocket
+│   │   ├── i18n/
+│   │   ├── App.jsx, main.jsx, index.css
+│   ├── vite.config.js          # proxy /api and /ws to the backend
+│   ├── package.json
+│   └── index.html
 └── README.md
 ```
 
-## Quick Start
+## Quick start
 
-### Prerequisites
+**Requirements:** Python 3.10+, Node.js 18+, and npm (or pnpm).
 
-- Python 3.10+
-- Node.js 18+
-- npm or pnpm
+### Backend
 
-### Backend Setup
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser   # optional, for /admin
+python manage.py runserver
+```
 
-1. **Navigate to backend directory**:
-   ```bash
-   cd backend
-   ```
+API base: `http://127.0.0.1:8000/`. With this setup, `runserver` serves the ASGI app (Channels). For production, you typically run an ASGI server (e.g. Daphne) and set **Redis**-backed `CHANNEL_LAYERS` instead of the in-memory layer.
 
-2. **Create virtual environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### Frontend
 
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-4. **Run migrations**:
-   ```bash
-   python manage.py makemigrations
-   python manage.py migrate
-   ```
+App URL: `http://127.0.0.1:5173`. The Vite dev server **proxies** `/api` and `/ws` to port 8000, so the React client uses relative URLs like `/api/...` without a separate `VITE_*` base URL in development.
 
-5. **Create superuser** (optional, for admin access):
-   ```bash
-   python manage.py createsuperuser
-   ```
+A production `npm run build` outputs to `frontend/dist/`. In a real deployment, host the frontend and API under one origin, or set an explicit API base URL and update **CORS** in `config/settings.py`.
 
-6. **Start the development server**:
-   ```bash
-   python manage.py runserver
-   ```
+## API (accurate DRF paths)
 
-   The API will be available at `http://localhost:8000`
+All routes are prefixed as shown. Trailing slashes follow Django/DRF defaults.
 
-### Frontend Setup
+### Users — `/api/users/`
 
-1. **Navigate to frontend directory** (in a new terminal):
-   ```bash
-   cd frontend
-   ```
+| Path | Method | Description |
+|------|--------|-------------|
+| `register/` | POST | Create account |
+| `login/` | POST | Returns auth token |
+| `logout/` | POST | Log out |
+| `change-password/` | POST | Change password |
+| `profile/` | GET, PUT/PATCH | Update profile (authenticated) |
+| `leaderboard/` | GET | Leaderboard |
+| `daily-challenge/` | GET | Daily challenge |
+| `profiles/` | GET | List user profiles |
+| `profiles/{id}/` | GET, … | Profile detail |
+| `profiles/{id}/progress/` | GET | Level, XP, streak, etc. |
+| `profiles/{id}/add_xp/` | POST | Add XP (body: `amount`) |
+| `achievements/` | GET | All achievements |
+| `user-achievements/` | GET | Unlocked achievements |
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+Send `Authorization: Token <key>` for authenticated requests after login.
 
-3. **Start the development server**:
-   ```bash
-   npm run dev
-   ```
+### Lessons — `/api/lessons/`
 
-   The app will be available at `http://localhost:5173`
+| Path | Method | Description |
+|------|--------|-------------|
+| `modules/` | GET | Published modules |
+| `modules/{id}/` | GET | Module detail |
+| `modules/{id}/lessons/` | GET | Lessons in a module |
+| `lessons/` | GET | Lessons (optional `?module_id=`) |
+| `lessons/{id}/` | GET | Lesson with quizzes (detail serializer) |
+| `lessons/{id}/quizzes/` | GET | Quizzes for that lesson |
+| `lessons/{id}/start/` | POST | Start lesson (auth required) |
+| `lessons/{id}/complete/` | POST | Complete lesson (e.g. `score`) |
+| `quizzes/{id}/` | GET | Quiz detail |
+| `quizzes/{id}/answer/` | POST | Check answer (`option_id`) |
+| `progress/` | GET | User module progress rows |
+| `progress/summary/` | GET | Overall summary |
+| `progress/completed_lessons/` | GET | Completed lesson IDs |
+| `progress/module_progress/` | GET | Per-module progress map |
 
-## API Endpoints
+### Stocks — `/api/stocks/`
 
-### Lessons API (`/api/lessons/`)
+Because the router registers the `Stock` view on the basename `stocks`, the collection URL is **`/api/stocks/stocks/`** (repeated `stocks` segment).
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/modules/` | GET | List all modules |
-| `/modules/{id}/` | GET | Get module details |
-| `/modules/{id}/lessons/` | GET | Get lessons for a module |
-| `/lessons/` | GET | List all lessons |
-| `/lessons/{id}/` | GET | Get lesson details with quizzes |
-| `/lessons/{id}/start/` | POST | Mark lesson as started |
-| `/lessons/{id}/complete/` | POST | Mark lesson as completed |
-| `/quizzes/{id}/answer/` | POST | Submit quiz answer |
-| `/progress/summary/` | GET | Get progress summary |
-
-### Stocks API (`/api/stocks/`)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/stocks/` | GET | List all stocks |
-| `/stocks/{id}/` | GET | Get stock details |
-| `/stocks/{id}/history/` | GET | Get price history |
-| `/stocks/{id}/quote/` | GET | Get real-time quote |
-| `/stocks/initialize/` | POST | Initialize stocks from config |
-| `/stocks/refresh/` | POST | Refresh all stock prices |
-| `/portfolio/` | GET | Get user portfolio |
-| `/portfolio/summary/` | GET | Get portfolio summary |
-| `/trade/` | POST | Execute buy/sell trade |
-| `/transactions/` | GET | Get transaction history |
-| `/watchlist/` | GET, POST, DELETE | Manage watchlist |
-
-### Users API (`/api/users/`)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | List users |
-| `/{id}/` | GET | Get user details |
-| `/{id}/progress/` | GET | Get user progress |
-| `/{id}/add_xp/` | POST | Add XP to user |
-| `/achievements/` | GET | List achievements |
-| `/user-achievements/` | GET | Get user achievements |
+| Path | Method | Description |
+|------|--------|-------------|
+| `stocks/stocks/` | GET | List stocks |
+| `stocks/stocks/{id}/` | GET | Stock detail |
+| `stocks/stocks/initialize/` | POST | Seed from config |
+| `stocks/stocks/refresh/` | POST | Refresh prices from API |
+| `stocks/stocks/{id}/history/` | GET | History (`?period=1mo`, etc.) |
+| `stocks/stocks/{id}/quote/` | GET | Current quote |
+| `stocks/portfolio/` | GET | Holdings |
+| `stocks/portfolio/summary/` | GET | Portfolio summary |
+| `stocks/transactions/` | GET | Trades list |
+| `stocks/watchlist/` | GET, POST, … | Watchlist CRUD (per user) |
+| `stocks/trade/` | POST | Buy/sell (`stock_id`, `shares`, `transaction_type`) |
 
 ### WebSocket
 
-| Endpoint | Description |
-|----------|-------------|
-| `ws://localhost:8000/ws/stocks/` | Real-time stock price updates |
+- **URL:** `ws://localhost:8000/ws/stocks/` (Vite’s dev server proxies `/ws` to the same path on the backend; see `frontend/vite.config.js` and `apps/stocks/routing.py`)
 
-**WebSocket Messages:**
+Example message shapes (match your consumer):
+
 ```javascript
-// Request current prices
 { "action": "get_prices" }
-
-// Request price history
 { "action": "get_history", "symbol": "AAPL", "period": "1mo" }
-
-// Refresh prices from API
 { "action": "refresh" }
 ```
 
 ## Configuration
 
-### Changing Tracked Stocks
+### Tracked tickers
 
-Edit `backend/apps/stocks/config.py`:
+Edit `backend/apps/stocks/config.py` (`TRACKED_STOCKS`), then in Django shell:
 
 ```python
-TRACKED_STOCKS = [
-    ('AAPL', 'Apple Inc.', 'Technology'),
-    ('MSFT', 'Microsoft Corporation', 'Technology'),
-    # Add or modify stocks here
-]
+from apps.stocks.services import StockService
+StockService.initialize_stocks()
+StockService.update_stock_prices()
 ```
 
-After changing, run:
-```bash
-python manage.py shell
->>> from apps.stocks.services import StockService
->>> StockService.initialize_stocks()
->>> StockService.update_stock_prices()
-```
+### Environment (backend)
 
-### Environment Variables
-
-Create a `.env` file in the backend directory:
+Create `backend/.env` as needed, for example:
 
 ```bash
-# Django Settings
-DJANGO_SECRET_KEY=your-secret-key-here
+DJANGO_SECRET_KEY=your-secret-key
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
-## Database Models
+Adjust `CORS_ALLOWED_ORIGINS` and the database in `config/settings.py` for staging/production.
 
-### Users App
+## Data model (overview)
 
-- **User**: Extended Django user with XP, level, streak, virtual balance
-- **Achievement**: Unlockable achievements with conditions
-- **UserAchievement**: Many-to-many tracking unlocked achievements
-
-### Lessons App
-
-- **Module**: Learning modules containing lessons
-- **Lesson**: Individual lessons with content and quizzes
-- **Quiz**: Multiple choice questions
-- **QuizOption**: Answer options for quizzes
-- **UserLessonProgress**: Track user progress through lessons
-- **UserModuleProgress**: Track user progress through modules
-
-### Stocks App
-
-- **Stock**: Stock information and latest prices
-- **StockPriceHistory**: Historical price data
-- **Portfolio**: User stock holdings
-- **Transaction**: Buy/sell transaction records
-- **Watchlist**: User stock watchlist
+- **users** — `User` (XP, level, streak, virtual balance), `Achievement`, `UserAchievement`, …
+- **lessons** — `Module`, `Lesson`, `Quiz`, `QuizOption`, lesson and module progress
+- **stocks** — `Stock`, price history, `Portfolio`, `Transaction`, `Watchlist`
 
 ## Development
 
-### Running Tests
-
 ```bash
 # Backend
-cd backend
-python manage.py test
+cd backend && python manage.py test
 
 # Frontend
-cd frontend
-npm run lint
+cd frontend && npm run lint
 ```
 
-### Building for Production
+`requirements.txt` also includes **Black**, **Ruff**, **mypy**, **flake8**, and **pre-commit** for local quality checks if you add a pre-commit config.
 
-```bash
-# Frontend build
-cd frontend
-npm run build
+## i18n (frontend)
 
-# The build output will be in frontend/dist/
-```
+Spanish UI strings live in `frontend/src/i18n/translations.js` and are imported as nested objects (e.g. `translations.dashboard.title`).
 
-## Internationalization (i18n)
+## Roadmap / ideas
 
-The app UI is in **Spanish** while all code remains in **English**. Translations are managed in a single file:
+- Tighten default DRF permissions (`IsAuthenticated` where appropriate) and admin-only endpoints
+- Broader social features (friends, shared challenges) beyond the leaderboard
+- More lesson types (video, interactive drills)
+- Advanced sim features (e.g. limit orders), richer portfolio analytics
+- Push notifications for streaks/achievements
+- Docker and CI/CD
 
-```
-frontend/src/i18n/translations.js
-```
+## License and data
 
-### Translation Structure
-
-```javascript
-import translations from '../i18n/translations';
-
-// Access translations
-const { dashboard, stocks, lesson } = translations;
-
-// Use in components
-<h1>{dashboard.title}</h1>  // "Módulos de Aprendizaje"
-```
-
-### Adding/Modifying Translations
-
-Edit `frontend/src/i18n/translations.js`:
-
-```javascript
-const translations = {
-  dashboard: {
-    title: 'Módulos de Aprendizaje',
-    // Add more translations here
-  },
-  // ...
-};
-```
-
-### Adding Another Language
-
-To add support for multiple languages:
-
-1. Create language-specific files (e.g., `es.js`, `en.js`)
-2. Create a language context/provider
-3. Switch translations based on user preference
-
-## Future Enhancements
-
-- [ ] User authentication (JWT/Session)
-- [ ] Social features (leaderboards, friends)
-- [ ] More lesson types (video, interactive exercises)
-- [ ] Advanced trading features (limit orders, stop-loss)
-- [ ] Portfolio analytics and performance tracking
-- [ ] Mobile-responsive improvements
-- [ ] Push notifications for streaks and achievements
-- [ ] Docker containerization
-- [ ] CI/CD pipeline
-
-## License
-
-This project is for educational purposes. Stock data is provided by Yahoo Finance through the yfinance library.
+Educational use. Market data is retrieved via the **yfinance** library; Yahoo Finance terms and limitations apply to delayed or live data.
 
 ---
 
-Built with Django + React for the TFG project.
+Built with **Django + React** for the TFG.
