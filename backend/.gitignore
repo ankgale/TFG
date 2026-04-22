@@ -26,3 +26,7 @@ media/
 # OS
 .DS_Store
 Thumbs.db
+
+.bandit
+mypy.ini
+ruff.toml

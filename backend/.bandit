@@ -1,3 +1,0 @@
-[bandit]
-# Keep Bandit defaults and skip local virtualenv (paths are ./venv/... so use ./venv).
-exclude = .svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg,./venv,./.venv,backend/venv,backend/.venv
