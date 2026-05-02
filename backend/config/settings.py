@@ -8,11 +8,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load backend/.env (single source for local and server config)
+load_dotenv(BASE_DIR / ".env")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv(
@@ -85,12 +85,18 @@ CHANNEL_LAYERS = {
     }
 }
 
-# Database
+# Database (PostgreSQL only; requires psycopg2-binary)
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+_conn_max_age_raw = os.getenv("POSTGRES_CONN_MAX_AGE", "60")
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "finlearn"),
+        "USER": os.getenv("POSTGRES_USER", "finlearn"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "finlearn"),
+        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        "CONN_MAX_AGE": int(_conn_max_age_raw) if _conn_max_age_raw else 0,
     }
 }
 

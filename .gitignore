@@ -5,3 +5,4 @@ pruebas.txt
 .pre-commit-config.yaml
 .mypy_cache/
 .ruff_cache/
+tfg.zip
